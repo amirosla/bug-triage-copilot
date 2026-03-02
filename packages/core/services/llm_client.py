@@ -217,7 +217,6 @@ class OpenAICompatibleProvider(LLMClientBase):
             return None
 
     def embed(self, text: str) -> list[float]:
-        from openai import OpenAI
 
         # Truncate to avoid token limit (8191 for text-embedding-3-small)
         truncated = text[:8000]

@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import textwrap
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
-
 from core.config import settings
 from core.db.session import get_session
 from core.models.db import DeliveryStatus, Issue, TriageResult, TriageStatus, WebhookDelivery
@@ -32,7 +30,7 @@ def _build_comment_md(
 ) -> str:
     """Render the Markdown comment posted to GitHub."""
     priority_emoji = {"P0": "🔴", "P1": "🟠", "P2": "🟡", "P3": "🟢"}.get(triage.priority, "⚪")
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     lines: list[str] = [
         marker,
@@ -251,7 +249,7 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
             if delivery:
                 delivery.status = DeliveryStatus.done
                 delivery.processed = True
-                delivery.processed_at = datetime.now(timezone.utc)
+                delivery.processed_at = datetime.now(UTC)
 
             log.info(
                 "Triage complete",

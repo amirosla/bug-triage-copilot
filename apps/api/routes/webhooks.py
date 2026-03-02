@@ -11,19 +11,17 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import structlog
+from core.config import settings
+from core.db.session import get_db
+from core.models.db import DeliveryStatus, Issue, Repo, TriageStatus, WebhookDelivery
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from redis import Redis
 from rq import Queue
 from sqlalchemy.orm import Session
-
-from core.config import settings
-from core.db.session import get_db
-from core.models.db import DeliveryStatus, Issue, Repo, TriageStatus, WebhookDelivery
 
 log = structlog.get_logger(__name__)
 router = APIRouter(tags=["webhooks"])

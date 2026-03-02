@@ -6,10 +6,6 @@ import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
-
 from core.db.session import get_db
 from core.models.db import Issue, Repo, TriageStatus, WebhookDelivery
 from core.models.schemas import (
@@ -19,6 +15,8 @@ from core.models.schemas import (
     RepoOut,
     WebhookDeliveryOut,
 )
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, selectinload
 
 log = structlog.get_logger(__name__)
 router = APIRouter()

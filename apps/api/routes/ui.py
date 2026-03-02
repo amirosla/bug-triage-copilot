@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import os
 import uuid
 from pathlib import Path
 
+from core.db.session import get_db
+from core.models.db import Issue, Repo, TriageStatus
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, selectinload
-
-from core.db.session import get_db
-from core.models.db import Issue, Repo, TriageStatus
 
 router = APIRouter(tags=["ui"])
 

@@ -72,7 +72,7 @@ class Settings(BaseSettings):
             return self.github_private_key_base64  # Already plain text (dev mode)
 
     @model_validator(mode="after")
-    def _validate_github_config(self) -> "Settings":
+    def _validate_github_config(self) -> Settings:
         if self.environment == "production":
             if not self.github_app_id:
                 raise ValueError("GITHUB_APP_ID is required in production")

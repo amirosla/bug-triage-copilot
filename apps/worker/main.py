@@ -9,15 +9,13 @@ Or directly:
 from __future__ import annotations
 
 import logging
-import os
 import signal
 import sys
 
 import structlog
+from core.config import settings
 from redis import Redis
 from rq import Queue, Worker
-
-from core.config import settings
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 structlog.configure(

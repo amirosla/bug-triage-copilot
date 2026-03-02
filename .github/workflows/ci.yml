@@ -58,7 +58,7 @@ jobs:
       - name: Run tests
         env:
           LLM_PROVIDER: mock
-          GITHUB_WEBHOOK_SECRET: test-secret
+          GITHUB_WEBHOOK_SECRET: changeme
           DATABASE_URL: "postgresql+psycopg://triage:triage@localhost:5432/bug_triage_test"
           REDIS_URL: "redis://localhost:6379/1"
         run: |
@@ -66,13 +66,6 @@ jobs:
             --ignore=tests/integration \
             -x
 
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: htmlcov/
-          retention-days: 7
 
   # ── Integration tests (with Docker services) ─────────────────────────────────
   test-integration:
@@ -101,7 +94,7 @@ jobs:
       - name: Run integration tests (mocked DB)
         env:
           LLM_PROVIDER: mock
-          GITHUB_WEBHOOK_SECRET: test-secret
+          GITHUB_WEBHOOK_SECRET: changeme
         run: |
           PYTHONPATH=packages:. pytest tests/integration/ -v --tb=short
 
