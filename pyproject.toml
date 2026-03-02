@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bug-triage-copilot"
+version = "0.1.0"
+description = "Automated GitHub Issue triage using LLM, embeddings, and similarity search"
+requires-python = ">=3.12"
+readme = "README.md"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["packages", "."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B"]
+ignore = ["B008", "N818"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+strict = false
+
+[tool.coverage.run]
+source = ["packages", "apps"]
+omit = ["tests/*", "migrations/*"]

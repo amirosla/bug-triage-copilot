@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-950">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Bug Triage Copilot{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#6d28d9', 600: '#5b21b6', 700: '#4c1d95' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .priority-P0 { @apply bg-red-900 text-red-200 border border-red-700; }
+    .priority-P1 { @apply bg-orange-900 text-orange-200 border border-orange-700; }
+    .priority-P2 { @apply bg-yellow-900 text-yellow-200 border border-yellow-700; }
+    .priority-P3 { @apply bg-green-900 text-green-200 border border-green-700; }
+    .status-pending    { @apply bg-gray-700 text-gray-300; }
+    .status-processing { @apply bg-blue-900 text-blue-300 animate-pulse; }
+    .status-done       { @apply bg-green-900 text-green-300; }
+    .status-failed     { @apply bg-red-900 text-red-300; }
+  </style>
+</head>
+<body class="h-full text-gray-100 font-sans antialiased">
+
+  <!-- Nav -->
+  <nav class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center gap-6">
+    <a href="/" class="flex items-center gap-2 text-white font-bold text-lg hover:text-brand-500 transition">
+      <span class="text-2xl">🤖</span>
+      <span>Bug Triage Copilot</span>
+    </a>
+    <div class="flex-1"></div>
+    <a href="/" class="text-gray-400 hover:text-white transition text-sm">Dashboard</a>
+    <a href="/docs" class="text-gray-400 hover:text-white transition text-sm">API Docs</a>
+    <a href="https://github.com" target="_blank" class="text-gray-400 hover:text-white transition text-sm">GitHub</a>
+  </nav>
+
+  <!-- Main content -->
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-6 text-gray-600 text-xs">
+    Bug Triage Copilot &mdash; Portfolio Project
+  </footer>
+
+</body>
+</html>

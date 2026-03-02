@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Bug Triage Copilot{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-8">
+  <div>
+    <h1 class="text-3xl font-bold text-white">Issue Dashboard</h1>
+    <p class="text-gray-400 mt-1">{{ total }} issue{{ 's' if total != 1 }} tracked</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="get" action="/" class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6 flex flex-wrap gap-4 items-end">
+  <div class="flex-1 min-w-[180px]">
+    <label class="block text-xs text-gray-400 mb-1 uppercase tracking-wide">Repository</label>
+    <select name="repo" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+      <option value="">All repos</option>
+      {% for r in repos %}
+        <option value="{{ r.full_name }}" {% if r.full_name == selected_repo %}selected{% endif %}>{{ r.full_name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="min-w-[160px]">
+    <label class="block text-xs text-gray-400 mb-1 uppercase tracking-wide">Status</label>
+    <select name="status" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+      <option value="">All statuses</option>
+      {% for s in statuses %}
+        <option value="{{ s }}" {% if s == selected_status %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2 rounded-lg text-sm transition">
+    Filter
+  </button>
+  {% if selected_repo or selected_status %}
+    <a href="/" class="text-gray-400 hover:text-white text-sm self-center">Clear</a>
+  {% endif %}
+</form>
+
+<!-- Issues table -->
+{% if issues %}
+<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-800 text-gray-400 uppercase text-xs tracking-wide">
+        <th class="px-6 py-3 text-left">Issue</th>
+        <th class="px-6 py-3 text-left">Repository</th>
+        <th class="px-6 py-3 text-left">Priority</th>
+        <th class="px-6 py-3 text-left">Status</th>
+        <th class="px-6 py-3 text-left">Labels</th>
+        <th class="px-6 py-3 text-left">Opened</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-800">
+      {% for issue in issues %}
+      <tr class="hover:bg-gray-800/50 transition cursor-pointer" onclick="window.location='/issues/{{ issue.id }}'">
+        <td class="px-6 py-4">
+          <div class="flex items-start gap-2">
+            <span class="text-gray-500 mt-0.5">#{{ issue.github_issue_number }}</span>
+            <div>
+              <a href="/issues/{{ issue.id }}" class="text-white hover:text-brand-500 font-medium line-clamp-1">
+                {{ issue.title }}
+              </a>
+              <p class="text-gray-500 text-xs mt-0.5">by {{ issue.author }}</p>
+            </div>
+          </div>
+        </td>
+        <td class="px-6 py-4 text-gray-400 text-xs font-mono">{{ issue.repo.full_name }}</td>
+        <td class="px-6 py-4">
+          {% if issue.triage_result %}
+            <span class="priority-{{ issue.triage_result.priority }} px-2 py-0.5 rounded text-xs font-bold">
+              {{ issue.triage_result.priority }}
+            </span>
+          {% else %}
+            <span class="text-gray-600 text-xs">—</span>
+          {% endif %}
+        </td>
+        <td class="px-6 py-4">
+          <span class="status-{{ issue.triage_status }} px-2 py-0.5 rounded-full text-xs font-medium">
+            {{ issue.triage_status }}
+          </span>
+        </td>
+        <td class="px-6 py-4">
+          {% if issue.triage_result and issue.triage_result.suggested_labels %}
+            <div class="flex flex-wrap gap-1">
+              {% for lbl in issue.triage_result.suggested_labels[:3] %}
+                <span class="bg-purple-900/60 text-purple-300 border border-purple-700 px-2 py-0.5 rounded text-xs">
+                  {{ lbl.label }}
+                </span>
+              {% endfor %}
+            </div>
+          {% else %}
+            <span class="text-gray-600 text-xs">—</span>
+          {% endif %}
+        </td>
+        <td class="px-6 py-4 text-gray-500 text-xs">
+          {% if issue.created_at_github %}
+            {{ issue.created_at_github.strftime('%Y-%m-%d') }}
+          {% else %}
+            {{ issue.created_at.strftime('%Y-%m-%d') }}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<div class="flex items-center justify-center gap-2 mt-6">
+  {% if page > 1 %}
+    <a href="?page={{ page - 1 }}{% if selected_repo %}&repo={{ selected_repo }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}"
+       class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition">
+      ← Previous
+    </a>
+  {% endif %}
+  <span class="text-gray-500 text-sm">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="?page={{ page + 1 }}{% if selected_repo %}&repo={{ selected_repo }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}"
+       class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm text-gray-300 transition">
+      Next →
+    </a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<!-- Empty state -->
+<div class="text-center py-20 text-gray-600">
+  <p class="text-5xl mb-4">🤖</p>
+  <p class="text-xl font-semibold text-gray-400 mb-2">No issues yet</p>
+  <p class="text-sm">Open a GitHub Issue in a connected repo to trigger triage.</p>
+  {% if selected_repo or selected_status %}
+    <a href="/" class="mt-4 inline-block text-brand-500 hover:text-brand-400 text-sm">Clear filters</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Stats bar -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+  {% set status_counts = namespace(pending=0, processing=0, done=0, failed=0) %}
+  {% for issue in issues %}
+    {% if issue.triage_status == 'pending' %}{% set status_counts.pending = status_counts.pending + 1 %}{% endif %}
+    {% if issue.triage_status == 'processing' %}{% set status_counts.processing = status_counts.processing + 1 %}{% endif %}
+    {% if issue.triage_status == 'done' %}{% set status_counts.done = status_counts.done + 1 %}{% endif %}
+    {% if issue.triage_status == 'failed' %}{% set status_counts.failed = status_counts.failed + 1 %}{% endif %}
+  {% endfor %}
+  {% for label, count, cls in [('Pending', status_counts.pending, 'text-gray-400'), ('Processing', status_counts.processing, 'text-blue-400'), ('Done', status_counts.done, 'text-green-400'), ('Failed', status_counts.failed, 'text-red-400')] %}
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+    <p class="text-2xl font-bold {{ cls }}">{{ count }}</p>
+    <p class="text-xs text-gray-500 mt-1 uppercase tracking-wide">{{ label }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Config: {{ repo.full_name }} — Bug Triage Copilot{% endblock %}
+
+{% block content %}
+<nav class="text-sm text-gray-500 mb-6">
+  <a href="/" class="hover:text-white transition">Dashboard</a>
+  <span class="mx-2">›</span>
+  <span class="text-gray-300">{{ repo.full_name }} Config</span>
+</nav>
+
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-bold text-white mb-6">
+    ⚙️ Triage Config: <span class="font-mono text-brand-500">{{ repo.full_name }}</span>
+  </h1>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+    <p class="text-gray-400 text-sm mb-6">
+      Edit this repo's triage configuration. Changes take effect on the next issue.
+      Use the <a href="/docs#/default/update_repo_config_api_repos__repo_id__config_patch"
+                 class="text-brand-500 hover:underline">PATCH /api/repos/{id}/config</a> endpoint for programmatic updates.
+    </p>
+
+    <!-- Current config display -->
+    <div class="space-y-4">
+
+      <div>
+        <label class="block text-xs text-gray-400 uppercase tracking-wide mb-1">Allowed Labels</label>
+        <div class="flex flex-wrap gap-2">
+          {% for label in config.allowed_labels %}
+          <span class="bg-purple-900/40 text-purple-300 border border-purple-700 px-3 py-1 rounded-full text-sm">{{ label }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 pt-2">
+        <div class="bg-gray-800 rounded-lg p-4">
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Auto Apply Labels</p>
+          <p class="text-white font-semibold">{{ 'Yes' if config.auto_apply_labels else 'No' }}</p>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-4">
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Label Confidence Threshold</p>
+          <p class="text-white font-semibold">{{ (config.label_confidence_threshold * 100)|int }}%</p>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-4">
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Similarity Threshold</p>
+          <p class="text-white font-semibold">{{ (config.similarity_threshold * 100)|int }}%</p>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-4">
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Installation ID</p>
+          <p class="text-white font-semibold font-mono text-sm">{{ repo.github_installation_id or '—' }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 pt-6 border-t border-gray-800">
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">Update via API</h3>
+      <pre class="bg-gray-950 rounded-lg p-4 text-xs text-green-300 border border-gray-800 overflow-x-auto">curl -X PATCH http://localhost:8000/api/repos/{{ repo.id }}/config \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "allowed_labels": ["bug", "enhancement", "question"],
+    "auto_apply_labels": false,
+    "label_confidence_threshold": 0.75,
+    "similarity_threshold": 0.80
+  }'</pre>
+    </div>
+  </div>
+</div>
+{% endblock %}
