@@ -5,10 +5,9 @@ from __future__ import annotations
 import json
 
 import pytest
-from pydantic import ValidationError
-
-from core.models.schemas import SuggestedLabel, TriageOutput, TriagePrompt
+from core.models.schemas import TriageOutput, TriagePrompt
 from core.services.llm_client import MockLLMProvider
+from pydantic import ValidationError
 
 
 class TestTriageOutputSchema:

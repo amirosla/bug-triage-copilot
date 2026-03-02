@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,7 +22,6 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 os.environ.setdefault("GITHUB_WEBHOOK_SECRET", "changeme")
 
 from core.models.db import Base  # noqa: E402 — after env setup
-
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -90,8 +89,9 @@ def api_client():
         mock_queue.return_value = MagicMock()
         mock_queue.return_value.enqueue = MagicMock(return_value=MagicMock(id="test-job-id"))
 
-        from apps.api.main import app
         from core.db.session import get_db
+
+        from apps.api.main import app
 
         def override_get_db():
             db = _TestSession()

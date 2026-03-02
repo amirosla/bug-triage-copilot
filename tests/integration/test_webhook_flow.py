@@ -6,17 +6,14 @@ They exercise the complete triage pipeline end-to-end.
 
 from __future__ import annotations
 
-import json
-import uuid
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
+from core.models.db import Base, Issue, Repo, TriageStatus, WebhookDelivery
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-
-from core.models.db import Base, Issue, Repo, TriageResult, TriageStatus, WebhookDelivery
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
@@ -254,6 +251,7 @@ class TestCommentMarkdownBuilder:
 
     def test_comment_contains_marker(self):
         from core.models.schemas import TriageOutput
+
         from apps.worker.jobs.triage import _build_comment_md
 
         output = TriageOutput(
@@ -277,6 +275,7 @@ class TestCommentMarkdownBuilder:
 
     def test_comment_contains_priority(self):
         from core.models.schemas import TriageOutput
+
         from apps.worker.jobs.triage import _build_comment_md
 
         output = TriageOutput(
@@ -300,6 +299,7 @@ class TestCommentMarkdownBuilder:
 
     def test_comment_includes_similar_issues(self):
         from core.models.schemas import TriageOutput
+
         from apps.worker.jobs.triage import _build_comment_md
 
         output = TriageOutput(
@@ -331,6 +331,7 @@ class TestCommentMarkdownBuilder:
 
     def test_comment_shows_questions_when_needs_more_info(self):
         from core.models.schemas import TriageOutput
+
         from apps.worker.jobs.triage import _build_comment_md
 
         output = TriageOutput(

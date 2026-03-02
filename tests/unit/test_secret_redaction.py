@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from core.services.secret_redaction import REDACTION_PLACEHOLDER, redact, redact_secrets
 
 

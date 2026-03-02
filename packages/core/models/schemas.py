@@ -8,7 +8,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 # ── LLM triage output ────────────────────────────────────────────────────────
 
 
@@ -47,7 +46,7 @@ class TriageOutput(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def questions_only_when_needed(self) -> "TriageOutput":
+    def questions_only_when_needed(self) -> TriageOutput:
         if not self.needs_more_info and self.questions:
             # Silently clear questions when needs_more_info is False
             self.questions = []

@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import structlog
+from core.config import settings
 from fastapi import FastAPI, Request, Response
 
-from core.config import settings
-from apps.api.routes import webhooks, api as api_router, ui as ui_router
+from apps.api.routes import api as api_router
+from apps.api.routes import ui as ui_router
+from apps.api.routes import webhooks
 
 # ── Structured logging setup ──────────────────────────────────────────────────
 
