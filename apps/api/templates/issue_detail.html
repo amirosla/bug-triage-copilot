@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}#{{ issue.github_issue_number }} {{ issue.title }} — Bug Triage Copilot{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="text-sm text-gray-500 mb-6">
+  <a href="/" class="hover:text-white transition">Dashboard</a>
+  <span class="mx-2">›</span>
+  <span class="text-gray-300">{{ issue.repo.full_name }}#{{ issue.github_issue_number }}</span>
+</nav>
+
+<!-- Issue header -->
+<div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-3 flex-wrap mb-2">
+        <span class="text-gray-500 text-sm font-mono">{{ issue.repo.full_name }}#{{ issue.github_issue_number }}</span>
+        <span class="status-{{ issue.triage_status }} px-2 py-0.5 rounded-full text-xs font-medium">{{ issue.triage_status }}</span>
+        {% if issue.triage_result %}
+          <span class="priority-{{ issue.triage_result.priority }} px-2 py-0.5 rounded text-xs font-bold">
+            {{ issue.triage_result.priority }}
+          </span>
+        {% endif %}
+      </div>
+      <h1 class="text-2xl font-bold text-white break-words">{{ issue.title }}</h1>
+      <p class="text-gray-500 text-sm mt-2">
+        Opened by
+        <a href="https://github.com/{{ issue.author }}" target="_blank" class="text-brand-500 hover:underline">@{{ issue.author }}</a>
+        {% if issue.created_at_github %} on {{ issue.created_at_github.strftime('%B %d, %Y') }}{% endif %}
+      </p>
+    </div>
+    <a href="https://github.com/{{ issue.repo.full_name }}/issues/{{ issue.github_issue_number }}"
+       target="_blank"
+       class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white text-sm px-4 py-2 rounded-lg transition">
+      View on GitHub ↗
+    </a>
+  </div>
+
+  {% if issue.body %}
+  <div class="mt-4 pt-4 border-t border-gray-800">
+    <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-2">Issue Body</h3>
+    <pre class="text-gray-300 text-sm whitespace-pre-wrap break-words bg-gray-950 rounded-lg p-4 border border-gray-800 max-h-64 overflow-y-auto">{{ issue.body }}</pre>
+  </div>
+  {% endif %}
+</div>
+
+{% if issue.triage_result %}
+{% set tr = issue.triage_result %}
+
+<!-- Triage analysis -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+  <!-- Summary & Priority -->
+  <div class="lg:col-span-2 space-y-6">
+
+    <!-- Summary -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <span>📋</span> Summary
+      </h2>
+      <ul class="space-y-2">
+        {% for bullet in tr.summary_md.split('\n') if bullet.strip() %}
+        <li class="flex items-start gap-2 text-gray-300 text-sm">
+          <span class="text-brand-500 mt-0.5 flex-shrink-0">•</span>
+          <span>{{ bullet.lstrip('•- ').strip() }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Priority & reason -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <span>🎯</span> Priority Assessment
+      </h2>
+      <div class="flex items-center gap-3 mb-3">
+        <span class="priority-{{ tr.priority }} px-4 py-1 rounded text-sm font-bold">{{ tr.priority }}</span>
+        <p class="text-gray-400 text-sm">{{ tr.priority_reason }}</p>
+      </div>
+    </div>
+
+    <!-- Repro steps -->
+    {% if tr.repro_steps %}
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <span>🔁</span> Reproduction Steps
+      </h2>
+      <ol class="space-y-2 list-decimal list-inside text-gray-300 text-sm">
+        {% for step in tr.repro_steps %}
+        <li class="text-gray-300">{{ step }}</li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endif %}
+
+    <!-- Questions for author -->
+    {% if tr.questions %}
+    <div class="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-6">
+      <h2 class="text-lg font-semibold text-yellow-300 mb-4 flex items-center gap-2">
+        <span>❓</span> Questions for Author
+      </h2>
+      <ul class="space-y-2">
+        {% for q in tr.questions %}
+        <li class="flex items-start gap-2 text-yellow-200 text-sm">
+          <span class="text-yellow-500 flex-shrink-0">→</span>
+          <span>{{ q }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Sidebar: Labels + Similar -->
+  <div class="space-y-6">
+
+    <!-- Suggested labels -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+        <span>🏷️</span> Suggested Labels
+      </h2>
+      {% if tr.suggested_labels %}
+        <div class="space-y-3">
+          {% for lbl in tr.suggested_labels %}
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="bg-purple-900/60 text-purple-300 border border-purple-700 px-2 py-0.5 rounded text-xs font-medium">
+                {{ lbl.label }}
+              </span>
+              <span class="text-gray-500 text-xs">{{ (lbl.confidence * 100)|int }}%</span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-1">
+              <div class="bg-brand-500 h-1 rounded-full" style="width: {{ (lbl.confidence * 100)|int }}%"></div>
+            </div>
+            {% if lbl.reason %}
+            <p class="text-gray-600 text-xs mt-1">{{ lbl.reason }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-gray-600 text-sm">No labels suggested.</p>
+      {% endif %}
+    </div>
+
+    <!-- Similar issues -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+        <span>🔗</span> Similar Issues
+      </h2>
+      {% if tr.similar_issues %}
+        <ul class="space-y-3">
+          {% for sim in tr.similar_issues %}
+          <li class="border-b border-gray-800 pb-3 last:border-0 last:pb-0">
+            <a href="{{ sim.url }}" target="_blank"
+               class="text-brand-500 hover:underline text-sm font-medium line-clamp-2">
+              #{{ sim.issue_number }}{% if sim.title %}: {{ sim.title }}{% endif %}
+            </a>
+            <p class="text-gray-600 text-xs mt-0.5">Score: {{ (sim.score * 100)|int }}% similar</p>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-gray-600 text-sm">No similar issues found.</p>
+      {% endif %}
+    </div>
+
+    <!-- LLM metadata -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <h3 class="text-xs text-gray-500 uppercase tracking-wide mb-3">Analysis Metadata</h3>
+      <dl class="space-y-1 text-xs">
+        {% if tr.llm_model %}
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Model</dt>
+          <dd class="text-gray-300 font-mono">{{ tr.llm_model }}</dd>
+        </div>
+        {% endif %}
+        {% if tr.tokens_in %}
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Tokens in</dt>
+          <dd class="text-gray-300">{{ tr.tokens_in }}</dd>
+        </div>
+        {% endif %}
+        {% if tr.tokens_out %}
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Tokens out</dt>
+          <dd class="text-gray-300">{{ tr.tokens_out }}</dd>
+        </div>
+        {% endif %}
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Analysed</dt>
+          <dd class="text-gray-300">{{ tr.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+        </div>
+      </dl>
+    </div>
+
+  </div>
+</div>
+
+{% elif issue.triage_status == 'pending' %}
+<div class="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
+  <p class="text-4xl mb-4">⏳</p>
+  <p class="text-lg font-semibold text-gray-300">Triage Pending</p>
+  <p class="text-gray-500 text-sm mt-2">The job has been queued and will be processed shortly.</p>
+</div>
+
+{% elif issue.triage_status == 'processing' %}
+<div class="bg-blue-900/20 border border-blue-700/50 rounded-xl p-12 text-center">
+  <p class="text-4xl mb-4 animate-spin inline-block">⚙️</p>
+  <p class="text-lg font-semibold text-blue-300">Processing…</p>
+  <p class="text-gray-400 text-sm mt-2">LLM analysis is in progress. Refresh to see results.</p>
+</div>
+
+{% elif issue.triage_status == 'failed' %}
+<div class="bg-red-900/20 border border-red-700/50 rounded-xl p-12 text-center">
+  <p class="text-4xl mb-4">❌</p>
+  <p class="text-lg font-semibold text-red-300">Triage Failed</p>
+  <p class="text-gray-400 text-sm mt-2">An error occurred during analysis. Check worker logs.</p>
+</div>
+{% endif %}
+
+{% endblock %}
