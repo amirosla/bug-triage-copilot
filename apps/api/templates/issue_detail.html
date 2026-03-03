@@ -21,6 +21,12 @@
           <span class="priority-{{ issue.triage_result.priority }} px-2 py-0.5 rounded text-xs font-bold">
             {{ issue.triage_result.priority }}
           </span>
+          {% if issue.triage_result.issue_type %}
+            {% set type_emoji = {'bug': '🐛', 'enhancement': '✨', 'question': '❓', 'docs': '📚', 'chore': '🔧', 'security': '🔒'} %}
+            <span class="bg-gray-800 border border-gray-700 text-gray-300 px-2 py-0.5 rounded text-xs">
+              {{ type_emoji.get(issue.triage_result.issue_type, '📌') }} {{ issue.triage_result.issue_type }}{% if issue.triage_result.issue_type_confidence %} <span class="text-gray-500">{{ (issue.triage_result.issue_type_confidence * 100)|int }}%</span>{% endif %}
+            </span>
+          {% endif %}
         {% endif %}
       </div>
       <h1 class="text-2xl font-bold text-white break-words">{{ issue.title }}</h1>
@@ -80,7 +86,48 @@
       </div>
     </div>
 
-    <!-- Repro steps -->
+    <!-- Enhancement: Problem statement -->
+    {% if tr.issue_type == 'enhancement' and tr.problem_statement %}
+    <div class="bg-blue-900/10 border border-blue-800/50 rounded-xl p-6">
+      <h2 class="text-lg font-semibold text-blue-300 mb-3 flex items-center gap-2">
+        <span>🎯</span> Problem
+      </h2>
+      <p class="text-gray-300 text-sm leading-relaxed">{{ tr.problem_statement }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Enhancement: Acceptance criteria -->
+    {% if tr.issue_type == 'enhancement' and tr.acceptance_criteria %}
+    <div class="bg-green-900/10 border border-green-800/50 rounded-xl p-6">
+      <h2 class="text-lg font-semibold text-green-300 mb-4 flex items-center gap-2">
+        <span>✅</span> Acceptance Criteria
+      </h2>
+      <ul class="space-y-2">
+        {% for criterion in tr.acceptance_criteria %}
+        <li class="flex items-start gap-2 text-gray-300 text-sm">
+          <span class="text-green-500 mt-0.5 flex-shrink-0">☐</span>
+          <span>{{ criterion }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <!-- Enhancement: Proposed solution -->
+    {% if tr.issue_type == 'enhancement' and tr.proposed_solution %}
+    <div class="bg-purple-900/10 border border-purple-800/50 rounded-xl p-6">
+      <h2 class="text-lg font-semibold text-purple-300 mb-4 flex items-center gap-2">
+        <span>💡</span> Proposed Solution
+      </h2>
+      <ol class="space-y-2 list-decimal list-inside text-gray-300 text-sm">
+        {% for step in tr.proposed_solution %}
+        <li>{{ step }}</li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endif %}
+
+    <!-- Bug: Repro steps -->
     {% if tr.repro_steps %}
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
       <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">

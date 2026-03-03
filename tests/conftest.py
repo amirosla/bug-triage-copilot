@@ -67,6 +67,11 @@ def minimal_payload() -> dict:
     return json.loads((FIXTURES_DIR / "issue_opened_minimal.json").read_text())
 
 
+@pytest.fixture
+def enhancement_payload() -> dict:
+    return json.loads((FIXTURES_DIR / "issue_opened_enhancement.json").read_text())
+
+
 # ── FastAPI test client (mocking DB) ─────────────────────────────────────────
 @pytest.fixture
 def api_client():

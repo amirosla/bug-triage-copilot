@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ── LLM triage output ────────────────────────────────────────────────────────
+
+ISSUE_TYPE = Literal["bug", "enhancement", "question", "docs", "chore", "security", "other"]
 
 
 class SuggestedLabel(BaseModel):
@@ -20,6 +22,12 @@ class SuggestedLabel(BaseModel):
 class TriageOutput(BaseModel):
     """Strict schema for LLM JSON output. Validated before DB write."""
 
+    issue_type: ISSUE_TYPE = Field(
+        default="bug", description="Type of the issue."
+    )
+    issue_type_confidence: float = Field(
+        default=1.0, ge=0.0, le=1.0, description="Confidence in issue_type classification."
+    )
     summary_bullets: list[str] = Field(
         ..., min_length=1, max_length=8, description="3-6 concise bullet points."
     )
@@ -31,11 +39,20 @@ class TriageOutput(BaseModel):
     questions: list[str] = Field(
         default_factory=list, max_length=3, description="Clarifying questions for the author."
     )
-    repro_steps: list[str] | None = Field(
-        default=None, description="Reproduction steps if available."
-    )
     needs_more_info: bool = Field(
         default=False, description="True if the issue lacks sufficient information."
+    )
+    repro_steps: list[str] | None = Field(
+        default=None, description="Reproduction steps if available (bugs only)."
+    )
+    problem_statement: str | None = Field(
+        default=None, description="1-2 sentence problem description (required for enhancements)."
+    )
+    acceptance_criteria: list[str] | None = Field(
+        default=None, description="Definition of done (min 3 items, required for enhancements)."
+    )
+    proposed_solution: list[str] | None = Field(
+        default=None, description="Optional proposed solution steps (for enhancements)."
     )
 
     @field_validator("summary_bullets")
@@ -46,10 +63,22 @@ class TriageOutput(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def questions_only_when_needed(self) -> TriageOutput:
+    def validate_all_fields(self) -> TriageOutput:
+        # Clear questions when needs_more_info is False
         if not self.needs_more_info and self.questions:
-            # Silently clear questions when needs_more_info is False
             self.questions = []
+
+        # Enhancement-specific validation
+        if self.issue_type == "enhancement":
+            if not self.acceptance_criteria or len(self.acceptance_criteria) < 3:
+                raise ValueError(
+                    "enhancement issues must have at least 3 acceptance_criteria items"
+                )
+            if not self.problem_statement or not self.problem_statement.strip():
+                raise ValueError(
+                    "enhancement issues must have a non-empty problem_statement"
+                )
+
         return self
 
 
@@ -86,12 +115,17 @@ class RepoOut(BaseModel):
 class TriageResultOut(BaseModel):
     id: uuid.UUID
     issue_id: uuid.UUID
+    issue_type: str | None = None
+    issue_type_confidence: float | None = None
     summary_md: str
     priority: str
     priority_reason: str
     suggested_labels: list[dict[str, Any]]
     questions: list[str]
     repro_steps: list[str] | None
+    problem_statement: str | None = None
+    acceptance_criteria: list[str] | None = None
+    proposed_solution: list[str] | None = None
     similar_issues: list[dict[str, Any]]
     llm_model: str | None
     tokens_in: int | None

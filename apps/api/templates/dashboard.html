@@ -46,6 +46,7 @@
       <tr class="border-b border-gray-800 text-gray-400 uppercase text-xs tracking-wide">
         <th class="px-6 py-3 text-left">Issue</th>
         <th class="px-6 py-3 text-left">Repository</th>
+        <th class="px-6 py-3 text-left">Type</th>
         <th class="px-6 py-3 text-left">Priority</th>
         <th class="px-6 py-3 text-left">Status</th>
         <th class="px-6 py-3 text-left">Labels</th>
@@ -67,6 +68,16 @@
           </div>
         </td>
         <td class="px-6 py-4 text-gray-400 text-xs font-mono">{{ issue.repo.full_name }}</td>
+        <td class="px-6 py-4">
+          {% if issue.triage_result and issue.triage_result.issue_type %}
+            {% set type_emoji = {'bug': '🐛', 'enhancement': '✨', 'question': '❓', 'docs': '📚', 'chore': '🔧', 'security': '🔒'} %}
+            <span class="text-gray-300 text-xs">
+              {{ type_emoji.get(issue.triage_result.issue_type, '📌') }} {{ issue.triage_result.issue_type }}
+            </span>
+          {% else %}
+            <span class="text-gray-600 text-xs">—</span>
+          {% endif %}
+        </td>
         <td class="px-6 py-4">
           {% if issue.triage_result %}
             <span class="priority-{{ issue.triage_result.priority }} px-2 py-0.5 rounded text-xs font-bold">

@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from core.models.db import Base, Issue, Repo, TriageStatus, WebhookDelivery
+from core.models.schemas import TriageOutput
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -352,3 +353,155 @@ class TestCommentMarkdownBuilder:
         )
         assert "Questions for Author" in md
         assert "What version?" in md
+
+
+class TestEnhancementCommentMarkdown:
+    """Tests for enhancement-specific Markdown rendering."""
+
+    def _make_enhancement_output(self, **overrides) -> TriageOutput:
+
+
+        base = dict(
+            issue_type="enhancement",
+            issue_type_confidence=0.90,
+            summary_bullets=["Feature request for dark mode"],
+            priority="P3",
+            priority_reason="Nice-to-have UX improvement.",
+            suggested_labels=[{"label": "enhancement", "confidence": 0.9, "reason": "Feature"}],
+            questions=[],
+            needs_more_info=False,
+            repro_steps=None,
+            problem_statement="Users cannot use a dark theme, causing eye strain.",
+            acceptance_criteria=[
+                "Toggle is visible in the header",
+                "Theme persists across sessions",
+                "All pages support dark mode",
+            ],
+            proposed_solution=["Add toggle to header", "Store preference in localStorage"],
+        )
+        base.update(overrides)
+        return TriageOutput(**base)
+
+    def test_enhancement_comment_contains_marker(self):
+        from apps.worker.jobs.triage import _build_comment_md
+
+        output = self._make_enhancement_output()
+        marker = "<!-- triage-copilot -->"
+        md = _build_comment_md(triage=output, similar=[], model="m", issue_url="http://x", marker=marker)
+        assert marker in md
+
+    def test_enhancement_comment_has_problem_section(self):
+        from apps.worker.jobs.triage import _build_comment_md
+
+        output = self._make_enhancement_output()
+        md = _build_comment_md(triage=output, similar=[], model="m", issue_url="http://x", marker="<!-- m -->")
+        assert "Problem" in md
+        assert "eye strain" in md
+
+    def test_enhancement_comment_has_acceptance_criteria(self):
+        from apps.worker.jobs.triage import _build_comment_md
+
+        output = self._make_enhancement_output()
+        md = _build_comment_md(triage=output, similar=[], model="m", issue_url="http://x", marker="<!-- m -->")
+        assert "Acceptance Criteria" in md
+        assert "Toggle is visible in the header" in md
+
+    def test_enhancement_comment_has_proposed_solution(self):
+        from apps.worker.jobs.triage import _build_comment_md
+
+        output = self._make_enhancement_output()
+        md = _build_comment_md(triage=output, similar=[], model="m", issue_url="http://x", marker="<!-- m -->")
+        assert "Proposed Solution" in md
+        assert "localStorage" in md
+
+    def test_enhancement_comment_no_repro_steps(self):
+        from apps.worker.jobs.triage import _build_comment_md
+
+        output = self._make_enhancement_output()
+        md = _build_comment_md(triage=output, similar=[], model="m", issue_url="http://x", marker="<!-- m -->")
+        assert "Reproduction Steps" not in md
+
+
+class TestEnhancementTriageFlow:
+    """Integration test: full pipeline for an enhancement issue."""
+
+    def test_triage_stores_enhancement_fields(self, integration_db, seeded_repo):
+        """Enhancement pipeline should store issue_type, problem_statement, acceptance_criteria."""
+        issue = Issue(
+            repo_id=seeded_repo.id,
+            github_issue_number=110,
+            github_issue_id=9001010,
+            title="Feature request: add dark mode support",
+            body="Users need a dark mode for night usage. A toggle in the header would be ideal.",
+            author="feature-user",
+            state="open",
+            triage_status=TriageStatus.pending,
+            last_delivery_id="delivery-enhancement-001",
+        )
+        integration_db.add(issue)
+        delivery = WebhookDelivery(
+            delivery_id="delivery-enhancement-001",
+            event="issues",
+            action="opened",
+            payload={},
+            status="enqueued",
+        )
+        integration_db.add(delivery)
+        integration_db.flush()
+
+        from contextlib import contextmanager
+
+        @contextmanager
+        def mock_get_session():
+            try:
+                yield integration_db
+                integration_db.flush()
+            except Exception:
+                raise
+
+        from core.models.schemas import TriageOutput
+
+        enhancement_output = TriageOutput(
+            issue_type="enhancement",
+            issue_type_confidence=0.92,
+            summary_bullets=["Dark mode requested", "Preference should persist"],
+            priority="P3",
+            priority_reason="Nice-to-have improvement.",
+            suggested_labels=[{"label": "enhancement", "confidence": 0.9, "reason": "Feature request"}],
+            questions=[],
+            needs_more_info=False,
+            repro_steps=None,
+            problem_statement="Users working in low-light environments lack a dark theme.",
+            acceptance_criteria=[
+                "Toggle button visible in header",
+                "Theme persists in localStorage",
+                "All dashboard pages support dark mode",
+            ],
+            proposed_solution=["Add CSS class toggle", "Store in localStorage"],
+        )
+
+        with (
+            patch("apps.worker.jobs.triage.get_session", mock_get_session),
+            patch("apps.worker.jobs.triage.get_llm_client") as mock_llm,
+        ):
+            mock_client = MagicMock()
+            mock_client.generate_triage.return_value = (
+                enhancement_output,
+                {"model": "test-model", "tokens_in": 90, "tokens_out": 45},
+            )
+            mock_client.embed.return_value = [0.1] * 1536
+            mock_llm.return_value = mock_client
+
+            from apps.worker.jobs.triage import triage_issue
+
+            triage_issue(str(issue.id), "delivery-enhancement-001")
+
+        assert issue.triage_status == TriageStatus.done
+        assert issue.triage_result is not None
+        assert issue.triage_result.issue_type == "enhancement"
+        assert issue.triage_result.issue_type_confidence == 0.92
+        assert issue.triage_result.problem_statement == "Users working in low-light environments lack a dark theme."
+        assert issue.triage_result.acceptance_criteria is not None
+        assert len(issue.triage_result.acceptance_criteria) == 3
+        assert issue.triage_result.proposed_solution is not None
+        assert issue.triage_result.repro_steps is None

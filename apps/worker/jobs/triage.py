@@ -18,24 +18,24 @@ from core.services.secret_redaction import redact
 log = structlog.get_logger(__name__)
 
 
-# ── Comment builder ───────────────────────────────────────────────────────────
+# ── Comment builders ──────────────────────────────────────────────────────────
 
 
-def _build_comment_md(
-    triage: TriageOutput,
-    similar: list[dict[str, Any]],
-    model: str | None,
-    issue_url: str,
-    marker: str,
-) -> str:
-    """Render the Markdown comment posted to GitHub."""
+def _render_header(triage: TriageOutput, marker: str, timestamp: str) -> list[str]:
+    """Shared header for all comment types."""
     priority_emoji = {"P0": "🔴", "P1": "🟠", "P2": "🟡", "P3": "🟢"}.get(triage.priority, "⚪")
-    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    type_emoji = {
+        "bug": "🐛", "enhancement": "✨", "question": "❓",
+        "docs": "📚", "chore": "🔧", "security": "🔒", "other": "📌",
+    }.get(triage.issue_type or "other", "📌")
 
     lines: list[str] = [
         marker,
         "",
         "## 🤖 Bug Triage Copilot",
+        "",
+        f"**Type:** {type_emoji} `{triage.issue_type or 'other'}`"
+        + (f" *(confidence: {int(triage.issue_type_confidence * 100)}%)*" if triage.issue_type_confidence else ""),
         "",
         "### 📋 Summary",
         "",
@@ -50,7 +50,11 @@ def _build_comment_md(
         f"> {triage.priority_reason}",
         "",
     ]
+    return lines
 
+
+def _render_labels(triage: TriageOutput) -> list[str]:
+    lines: list[str] = []
     if triage.suggested_labels:
         lines += ["### 🏷️ Suggested Labels", ""]
         for lbl in triage.suggested_labels:
@@ -60,6 +64,43 @@ def _build_comment_md(
                 + (f" — {lbl.reason}" if lbl.reason else "")
             )
         lines.append("")
+    return lines
+
+
+def _render_similar(similar: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    if similar:
+        lines += ["### 🔗 Similar Issues", ""]
+        for sim in similar:
+            score_pct = int(sim["score"] * 100)
+            title = sim.get("title", "")
+            title_snippet = f": {title[:60]}…" if len(title) > 60 else (f": {title}" if title else "")
+            lines.append(
+                f"- #{sim['issue_number']}{title_snippet} ([view]({sim['url']})) — {score_pct}% similar"
+            )
+        lines.append("")
+    return lines
+
+
+def _render_questions(triage: TriageOutput) -> list[str]:
+    lines: list[str] = []
+    if triage.needs_more_info and triage.questions:
+        lines += ["### ❓ Questions for Author", ""]
+        for q in triage.questions:
+            lines.append(f"- {q}")
+        lines.append("")
+    return lines
+
+
+def _build_bug_comment_md(
+    triage: TriageOutput,
+    similar: list[dict[str, Any]],
+    model: str | None,
+    marker: str,
+    timestamp: str,
+) -> str:
+    lines = _render_header(triage, marker, timestamp)
+    lines += _render_labels(triage)
 
     if triage.repro_steps:
         lines += ["### 🔁 Reproduction Steps", ""]
@@ -67,27 +108,61 @@ def _build_comment_md(
             lines.append(f"{i}. {step}")
         lines.append("")
 
-    if triage.needs_more_info and triage.questions:
-        lines += ["### ❓ Questions for Author", ""]
-        for q in triage.questions:
-            lines.append(f"- {q}")
-        lines.append("")
-
-    if similar:
-        lines += ["### 🔗 Similar Issues", ""]
-        for sim in similar:
-            score_pct = int(sim["score"] * 100)
-            title = sim.get("title", "")
-            title_snippet = f": {title[:60]}…" if len(title) > 60 else (f": {title}" if title else "")
-            lines.append(f"- #{sim['issue_number']}{title_snippet} ([view]({sim['url']})) — {score_pct}% similar")
-        lines.append("")
-
+    lines += _render_questions(triage)
+    lines += _render_similar(similar)
     lines += [
         "---",
         f"*Analysed by Bug Triage Copilot · Model: `{model or 'unknown'}` · {timestamp}*",
     ]
-
     return "\n".join(lines)
+
+
+def _build_enhancement_comment_md(
+    triage: TriageOutput,
+    similar: list[dict[str, Any]],
+    model: str | None,
+    marker: str,
+    timestamp: str,
+) -> str:
+    lines = _render_header(triage, marker, timestamp)
+
+    if triage.problem_statement:
+        lines += ["### 🎯 Problem", "", triage.problem_statement, ""]
+
+    if triage.acceptance_criteria:
+        lines += ["### ✅ Acceptance Criteria", ""]
+        for criterion in triage.acceptance_criteria:
+            lines.append(f"- [ ] {criterion}")
+        lines.append("")
+
+    if triage.proposed_solution:
+        lines += ["### 💡 Proposed Solution", ""]
+        for i, step in enumerate(triage.proposed_solution, 1):
+            lines.append(f"{i}. {step}")
+        lines.append("")
+
+    lines += _render_questions(triage)
+    lines += _render_labels(triage)
+    lines += _render_similar(similar)
+    lines += [
+        "---",
+        f"*Analysed by Bug Triage Copilot · Model: `{model or 'unknown'}` · {timestamp}*",
+    ]
+    return "\n".join(lines)
+
+
+def _build_comment_md(
+    triage: TriageOutput,
+    similar: list[dict[str, Any]],
+    model: str | None,
+    issue_url: str,
+    marker: str,
+) -> str:
+    """Render the Markdown comment posted to GitHub. Dispatches by issue_type."""
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    if triage.issue_type == "enhancement":
+        return _build_enhancement_comment_md(triage, similar, model, marker, timestamp)
+    return _build_bug_comment_md(triage, similar, model, marker, timestamp)
 
 
 # ── Main job function ─────────────────────────────────────────────────────────
@@ -102,12 +177,13 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
     2. Load repo config
     3. Redact secrets from body
     4. Call LLM for triage analysis
-    5. Validate output (Pydantic)
-    6. Generate embedding
-    7. Find similar issues
-    8. Post GitHub comment
-    9. Optionally apply labels
-    10. Mark issue as done
+    5. Filter labels to allowed list
+    6. Validate output (Pydantic)
+    7. Generate embedding (input depends on issue_type)
+    8. Find similar issues
+    9. Post GitHub comment
+    10. Optionally apply labels
+    11. Mark issue as done
     """
     log.info("Starting triage job", issue_id=issue_id, delivery_id=delivery_id)
 
@@ -135,6 +211,7 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
         try:
             repo = issue.repo
             cfg = repo.effective_config()
+            allowed_labels_set = set(cfg["allowed_labels"])
 
             # ── Step 2: Redact secrets ───────────────────────────────────────
             body_redacted = redact(issue.body)
@@ -149,31 +226,56 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
             )
             triage_output, llm_meta = llm.generate_triage(prompt)
 
-            # ── Step 4: Persist triage result ────────────────────────────────
+            # ── Step 4: Filter labels to allowed list ────────────────────────
+            filtered_labels = []
+            for lbl in triage_output.suggested_labels:
+                if lbl.label in allowed_labels_set:
+                    filtered_labels.append(lbl)
+                else:
+                    log.warning(
+                        "LLM suggested label not in allowed list, filtering out",
+                        label=lbl.label,
+                        allowed=list(allowed_labels_set),
+                    )
+            triage_output.suggested_labels = filtered_labels
+
+            # ── Step 5: Persist triage result ────────────────────────────────
             summary_text = "\n".join(f"• {b}" for b in triage_output.summary_bullets)
             existing_result = issue.triage_result
             if existing_result:
                 result_row = existing_result
             else:
                 result_row = TriageResult(issue_id=issue.id)
-                # Assign via relationship so the Python object is updated immediately
                 issue.triage_result = result_row
 
             result_row.summary_md = summary_text
             result_row.priority = triage_output.priority
             result_row.priority_reason = triage_output.priority_reason
-            result_row.suggested_labels = [
-                lbl.model_dump() for lbl in triage_output.suggested_labels
-            ]
+            result_row.suggested_labels = [lbl.model_dump() for lbl in triage_output.suggested_labels]
             result_row.questions = triage_output.questions
             result_row.repro_steps = triage_output.repro_steps
+            result_row.issue_type = triage_output.issue_type
+            result_row.issue_type_confidence = triage_output.issue_type_confidence
+            result_row.problem_statement = triage_output.problem_statement
+            result_row.acceptance_criteria = triage_output.acceptance_criteria
+            result_row.proposed_solution = triage_output.proposed_solution
             result_row.llm_model = llm_meta.get("model")
             result_row.tokens_in = llm_meta.get("tokens_in")
             result_row.tokens_out = llm_meta.get("tokens_out")
             db.flush()
 
-            # ── Step 5: Embedding ────────────────────────────────────────────
-            embed_text = f"{issue.title}\n\n{issue.body}\n\n{summary_text}"
+            # ── Step 6: Embedding (input depends on issue_type) ──────────────
+            if triage_output.issue_type == "enhancement":
+                parts = [issue.title]
+                if triage_output.problem_statement:
+                    parts.append(triage_output.problem_statement)
+                if triage_output.acceptance_criteria:
+                    parts.append("\n".join(triage_output.acceptance_criteria))
+                parts.append(summary_text)
+                embed_text = "\n\n".join(parts)
+            else:
+                embed_text = f"{issue.title}\n\n{body_redacted}\n\n{summary_text}"
+
             try:
                 embedding = llm.embed(embed_text)
                 save_embedding(db, issue.id, embedding)
@@ -182,7 +284,7 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
                 log.warning("Embedding failed (non-fatal)", error=str(emb_exc))
                 embedding = []
 
-            # ── Step 6: Similar issues ───────────────────────────────────────
+            # ── Step 7: Similar issues ───────────────────────────────────────
             similar: list[dict[str, Any]] = []
             if embedding:
                 try:
@@ -199,7 +301,7 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
                 except Exception as sim_exc:
                     log.warning("Similarity search failed (non-fatal)", error=str(sim_exc))
 
-            # ── Step 7: Post GitHub comment ──────────────────────────────────
+            # ── Step 8: Post GitHub comment ──────────────────────────────────
             marker = settings.bot_comment_marker
             comment_md = _build_comment_md(
                 triage=triage_output,
@@ -223,7 +325,7 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
                         marker=marker,
                     )
 
-                    # ── Step 8: Apply labels (if enabled) ───────────────────
+                    # ── Step 9: Apply labels (if enabled) ───────────────────
                     if cfg["auto_apply_labels"]:
                         threshold = cfg["label_confidence_threshold"]
                         labels_to_apply = [
@@ -241,10 +343,9 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
                     comment_preview=comment_md[:200],
                 )
 
-            # ── Step 9: Mark done ────────────────────────────────────────────
+            # ── Step 10: Mark done ───────────────────────────────────────────
             issue.triage_status = TriageStatus.done
 
-            # Mark delivery done
             delivery = db.get(WebhookDelivery, delivery_id)
             if delivery:
                 delivery.status = DeliveryStatus.done
@@ -254,6 +355,7 @@ def triage_issue(issue_id: str, delivery_id: str) -> None:
             log.info(
                 "Triage complete",
                 issue_id=issue_id,
+                issue_type=triage_output.issue_type,
                 priority=triage_output.priority,
                 labels=[lbl["label"] for lbl in result_row.suggested_labels],
                 similar_count=len(similar),

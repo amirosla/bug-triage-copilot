@@ -151,3 +151,118 @@ class TestMockLLMProvider:
         v1 = self.provider.embed("text one")
         v2 = self.provider.embed("text two")
         assert v1 != v2
+
+    def test_feature_keywords_yield_enhancement(self):
+        prompt = self._make_prompt("Feature request: add dark mode support")
+        output, _ = self.provider.generate_triage(prompt)
+        assert output.issue_type == "enhancement"
+
+    def test_enhancement_has_acceptance_criteria(self):
+        prompt = self._make_prompt(
+            "Feature request: add dark mode",
+            body="Users need a dark mode for night usage.",
+        )
+        output, _ = self.provider.generate_triage(prompt)
+        assert output.issue_type == "enhancement"
+        assert output.acceptance_criteria is not None
+        assert len(output.acceptance_criteria) >= 3
+
+    def test_enhancement_has_problem_statement(self):
+        prompt = self._make_prompt(
+            "Feature request: add export to CSV",
+            body="It would be useful to export data as CSV.",
+        )
+        output, _ = self.provider.generate_triage(prompt)
+        assert output.issue_type == "enhancement"
+        assert output.problem_statement is not None
+        assert len(output.problem_statement.strip()) > 0
+
+    def test_bug_keywords_yield_bug_type(self):
+        prompt = self._make_prompt("App crashes when uploading files")
+        output, _ = self.provider.generate_triage(prompt)
+        assert output.issue_type == "bug"
+
+    def test_bug_has_no_acceptance_criteria(self):
+        prompt = self._make_prompt(
+            "App crashes on upload",
+            body="Steps: 1. Upload file 2. See crash",
+        )
+        output, _ = self.provider.generate_triage(prompt)
+        assert output.issue_type == "bug"
+        assert output.acceptance_criteria is None
+
+
+class TestEnhancementTriageOutputValidation:
+    """Tests for Pydantic validation rules specific to enhancement type."""
+
+    def _valid_enhancement(self, **overrides) -> dict:
+        base = {
+            "issue_type": "enhancement",
+            "issue_type_confidence": 0.92,
+            "summary_bullets": ["User requests dark mode", "Preference should persist"],
+            "priority": "P3",
+            "priority_reason": "Nice-to-have UX improvement.",
+            "suggested_labels": [],
+            "questions": [],
+            "needs_more_info": False,
+            "repro_steps": None,
+            "problem_statement": "Users cannot use a dark theme, causing eye strain.",
+            "acceptance_criteria": [
+                "Toggle is visible in the header",
+                "Theme persists across sessions",
+                "All pages support dark mode",
+            ],
+            "proposed_solution": None,
+        }
+        base.update(overrides)
+        return base
+
+    def test_valid_enhancement_parses(self):
+        output = TriageOutput(**self._valid_enhancement())
+        assert output.issue_type == "enhancement"
+        assert len(output.acceptance_criteria) == 3
+        assert output.problem_statement is not None
+
+    def test_enhancement_requires_min_3_acceptance_criteria(self):
+        with pytest.raises(ValidationError, match="acceptance_criteria"):
+            TriageOutput(**self._valid_enhancement(acceptance_criteria=["Only one item"]))
+
+    def test_enhancement_requires_problem_statement(self):
+        with pytest.raises(ValidationError, match="problem_statement"):
+            TriageOutput(**self._valid_enhancement(problem_statement=None))
+
+    def test_enhancement_requires_nonempty_problem_statement(self):
+        with pytest.raises(ValidationError, match="problem_statement"):
+            TriageOutput(**self._valid_enhancement(problem_statement="   "))
+
+    def test_enhancement_repro_steps_can_be_none(self):
+        output = TriageOutput(**self._valid_enhancement(repro_steps=None))
+        assert output.repro_steps is None
+
+    def test_bug_does_not_require_acceptance_criteria(self):
+        output = TriageOutput(
+            issue_type="bug",
+            summary_bullets=["Crash on upload"],
+            priority="P1",
+            priority_reason="Production crash.",
+            suggested_labels=[],
+            needs_more_info=False,
+            acceptance_criteria=None,
+            problem_statement=None,
+        )
+        assert output.issue_type == "bug"
+        assert output.acceptance_criteria is None
+
+    def test_proposed_solution_is_optional(self):
+        output = TriageOutput(**self._valid_enhancement(proposed_solution=["Step 1", "Step 2"]))
+        assert len(output.proposed_solution) == 2
+
+    def test_issue_type_defaults_to_bug(self):
+        output = TriageOutput(
+            summary_bullets=["Something broke"],
+            priority="P2",
+            priority_reason="Normal bug.",
+            suggested_labels=[],
+            needs_more_info=False,
+        )
+        assert output.issue_type == "bug"

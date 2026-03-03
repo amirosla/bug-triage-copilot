@@ -11,6 +11,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -179,6 +180,11 @@ class TriageResult(Base):
     similar_issues: Mapped[list[dict[str, Any]]] = mapped_column(
         _JSON, nullable=False, default=list
     )
+    issue_type: Mapped[str | None] = mapped_column(Text, nullable=True, default="other")
+    issue_type_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    problem_statement: Mapped[str | None] = mapped_column(Text, nullable=True)
+    acceptance_criteria: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
+    proposed_solution: Mapped[list[str] | None] = mapped_column(_JSON, nullable=True)
     llm_model: Mapped[str | None] = mapped_column(Text)
     tokens_in: Mapped[int | None] = mapped_column(Integer)
     tokens_out: Mapped[int | None] = mapped_column(Integer)
